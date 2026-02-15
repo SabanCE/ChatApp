@@ -1,0 +1,22 @@
+<resources>
+    <string name="app_name">ChatApp</string>
+    <string name="welcome_back">Hoş Geldiniz</string>
+    <string name="login_subtitle">Devam etmek için giriş yapın</string>
+    <string name="email">E-posta</string>
+    <string name="password">Şifre</string>
+    <string name="login">Giriş Yap</string>
+    <string name="no_account_signup">Hesabınız yok mu? Kayıt Ol</string>
+
+    <string name="register_title">Kayıt Ol</string>
+    <string name="register_subtitle">Yeni bir hesap oluşturun</string>
+    <string name="full_name">Ad Soyad</string>
+    <string name="confirm_password">Şifreyi Onayla</string>
+    <string name="register">Kayıt Ol</string>
+    <string name="already_have_account">Zaten hesabınız var mı? Giriş Yap</string>
+
+    <string name="my_id">Kimliğim: %1$s</string>
+    <string name="no_chats">Henüz bir sohbetiniz yok</string>
+    <string name="add_friend">Arkadaş Ekle</string>
+    <string name="logout">Çıkış Yap</string>
+    <string name="back">Geri Dön</string>
+</resources>
