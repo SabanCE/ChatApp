@@ -15,12 +15,15 @@
         android:orientation="horizontal"
         android:padding="16dp">
 
-        <ImageView
-            android:id="@+id/ivUser"
+        <com.google.android.material.imageview.ShapeableImageView
+            android:id="@+id/ivGroup"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:src="@drawable/default_user"
-            android:contentDescription="User Image" />
+            android:scaleType="centerCrop"
+            android:src="@drawable/ic_group"
+            app:shapeAppearanceOverlay="@style/ShapeAppearance.MaterialComponents.SmallComponent"
+            app:strokeColor="@color/primary"
+            app:strokeWidth="1dp" />
 
         <LinearLayout
             android:layout_width="0dp"
@@ -30,10 +33,10 @@
             android:orientation="vertical">
 
             <TextView
-                android:id="@+id/tvUserName"
+                android:id="@+id/tvGroupName"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Kullanıcı Adı"
+                android:text="Grup Adı"
                 android:textColor="@color/black"
                 android:textSize="16sp"
                 android:textStyle="bold" />
@@ -43,7 +46,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:text="Henüz mesaj yok"
+                android:text="Grupta henüz mesaj yok"
                 android:textColor="#757575"
                 android:textSize="14sp" />
         </LinearLayout>

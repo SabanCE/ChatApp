@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.util.Base64
 import android.view.View
 import android.widget.EditText
+import android.widget.PopupMenu
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AlertDialog
@@ -14,6 +15,8 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.bumptech.glide.Glide
 import com.example.chatapp.databinding.ActivityDashboardBinding
+import com.example.chatapp.databinding.DialogAddFriendBinding
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.*
 
@@ -23,11 +26,9 @@ class DashboardActivity : AppCompatActivity() {
     private lateinit var auth: FirebaseAuth
     private lateinit var database: DatabaseReference
     private lateinit var adapter: ChatAdapter
-    private val matchedUsers = mutableListOf<User>()
+    private val dashboardItems = mutableListOf<Any>()
     private var isIdVisible = false
     private var myShortId: String = ""
-    
-    // Arkadaşların verilerini dinleyen listener'ları takip etmek için
     private val friendListeners = mutableMapOf<String, ValueEventListener>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,7 +48,7 @@ class DashboardActivity : AppCompatActivity() {
         setupListeners()
         updateIdUI()
         loadMyProfileImage()
-        loadMatchedUsers()
+        loadDashboardData()
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.main) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -57,7 +58,7 @@ class DashboardActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
-        adapter = ChatAdapter(matchedUsers)
+        adapter = ChatAdapter(dashboardItems)
         binding.rvChats.layoutManager = LinearLayoutManager(this)
         binding.rvChats.adapter = adapter
     }
@@ -71,7 +72,38 @@ class DashboardActivity : AppCompatActivity() {
             isIdVisible = !isIdVisible
             updateIdUI()
         }
-        binding.fabAddFriend.setOnClickListener { showAddFriendDialog() }
+        binding.fabAddFriend.setOnClickListener { view -> showFabMenu(view) }
+    }
+
+    private fun showFabMenu(view: View) {
+        val popup = PopupMenu(this, view)
+        popup.menu.add("Arkadaş Ekle")
+        popup.menu.add("Grup Oluştur")
+        popup.setOnMenuItemClickListener { item ->
+            when (item.title) {
+                "Arkadaş Ekle" -> showAddFriendDialogModern()
+                "Grup Oluştur" -> startActivity(Intent(this, CreateGroupActivity::class.java))
+            }
+            true
+        }
+        popup.show()
+    }
+
+    private fun showAddFriendDialogModern() {
+        val dialog = BottomSheetDialog(this)
+        val dialogBinding = DialogAddFriendBinding.inflate(layoutInflater)
+        dialog.setContentView(dialogBinding.root)
+
+        dialogBinding.btnAddFriend.setOnClickListener {
+            val shortId = dialogBinding.etFriendId.text.toString().trim().uppercase()
+            if (shortId.length == 5) {
+                addFriendByShortId(shortId)
+                dialog.dismiss()
+            } else {
+                Toast.makeText(this, "ID 5 haneli olmalıdır", Toast.LENGTH_SHORT).show()
+            }
+        }
+        dialog.show()
     }
 
     private fun loadMyProfileImage() {
@@ -83,10 +115,7 @@ class DashboardActivity : AppCompatActivity() {
                     if (!base64.isNullOrEmpty()) {
                         try {
                             val imageBytes = Base64.decode(base64, Base64.DEFAULT)
-                            Glide.with(this@DashboardActivity)
-                                .load(imageBytes)
-                                .placeholder(R.drawable.ic_user_placeholder)
-                                .into(binding.ivMyProfile)
+                            Glide.with(this@DashboardActivity).load(imageBytes).placeholder(R.drawable.ic_user_placeholder).into(binding.ivMyProfile)
                         } catch (e: Exception) {
                             binding.ivMyProfile.setImageResource(R.drawable.ic_user_placeholder)
                         }
@@ -96,79 +125,57 @@ class DashboardActivity : AppCompatActivity() {
             })
     }
 
-    private fun loadMatchedUsers() {
+    private fun loadDashboardData() {
         val currentUid = auth.uid ?: return
-        database.child("Users").child(currentUid).child("friends").addValueEventListener(object : ValueEventListener {
+        database.child("Users").child(currentUid).addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val friendIds = snapshot.children.mapNotNull { it.key }
-                
-                // Artık listede olmayan arkadaşların listener'larını temizle ve listeden çıkar
-                val listenerIterator = friendListeners.entries.iterator()
-                while (listenerIterator.hasNext()) {
-                    val entry = listenerIterator.next()
-                    if (!friendIds.contains(entry.key)) {
-                        database.child("Users").child(entry.key).removeEventListener(entry.value)
-                        listenerIterator.remove()
-                    }
-                }
-                
-                // Eşleşen kullanıcılar listesini temizleyip yeni friendIds'e göre güncelleme yapmak yerine, 
-                // sadece listeden çıkanları çıkaralım.
-                matchedUsers.removeAll { !friendIds.contains(it.uid) }
+                val friendIds = snapshot.child("friends").children.mapNotNull { it.key }
+                val groupIds = snapshot.child("groups").children.mapNotNull { it.key }
 
-                if (friendIds.isEmpty()) {
-                    binding.emptyState.visibility = View.VISIBLE
-                    adapter.notifyDataSetChanged()
-                    return
-                }
-                binding.emptyState.visibility = View.GONE
-
-                // Her arkadaş için canlı dinleyici ekle
-                friendIds.forEach { id ->
-                    if (!friendListeners.containsKey(id)) {
-                        val listener = object : ValueEventListener {
-                            override fun onDataChange(userSnapshot: DataSnapshot) {
-                                val user = userSnapshot.getValue(User::class.java)
-                                if (user != null) {
-                                    val index = matchedUsers.indexOfFirst { it.uid == user.uid }
-                                    if (index != -1) {
-                                        matchedUsers[index] = user
-                                    } else {
-                                        matchedUsers.add(user)
-                                    }
-                                    adapter.notifyDataSetChanged()
-                                }
+                dashboardItems.clear()
+                
+                groupIds.forEach { id ->
+                    database.child("Groups").child(id).addValueEventListener(object : ValueEventListener {
+                        override fun onDataChange(groupSnapshot: DataSnapshot) {
+                            val group = groupSnapshot.getValue(Group::class.java)
+                            if (group != null) {
+                                dashboardItems.removeAll { (it as? Group)?.groupId == group.groupId }
+                                dashboardItems.add(0, group)
+                                adapter.notifyDataSetChanged()
+                                checkEmptyState()
                             }
-                            override fun onCancelled(error: DatabaseError) {}
                         }
-                        database.child("Users").child(id).addValueEventListener(listener)
-                        friendListeners[id] = listener
-                    }
+                        override fun onCancelled(error: DatabaseError) {}
+                    })
                 }
-                adapter.notifyDataSetChanged()
+
+                friendIds.forEach { id ->
+                    database.child("Users").child(id).addValueEventListener(object : ValueEventListener {
+                        override fun onDataChange(userSnapshot: DataSnapshot) {
+                            val user = userSnapshot.getValue(User::class.java)
+                            if (user != null) {
+                                dashboardItems.removeAll { (it as? User)?.uid == user.uid }
+                                dashboardItems.add(user)
+                                adapter.notifyDataSetChanged()
+                                checkEmptyState()
+                            }
+                        }
+                        override fun onCancelled(error: DatabaseError) {}
+                    })
+                }
+                checkEmptyState()
             }
             override fun onCancelled(error: DatabaseError) {}
         })
     }
 
+    private fun checkEmptyState() {
+        binding.emptyState.visibility = if (dashboardItems.isEmpty()) View.VISIBLE else View.GONE
+    }
+
     private fun updateIdUI() {
         binding.tvMyId.text = if (isIdVisible) getString(R.string.my_id, myShortId) else getString(R.string.my_id, "*****")
         binding.btnToggleId.setImageResource(if (isIdVisible) R.drawable.ic_visibility else R.drawable.ic_visibility_off)
-    }
-
-    private fun showAddFriendDialog() {
-        val editText = EditText(this)
-        editText.hint = "5 haneli ID'yi girin"
-        AlertDialog.Builder(this)
-            .setTitle("Arkadaş Ekle")
-            .setView(editText)
-            .setPositiveButton("Ekle") { _, _ ->
-                val shortId = editText.text.toString().trim().uppercase()
-                if (shortId.length == 5) addFriendByShortId(shortId)
-                else Toast.makeText(this, "ID 5 haneli olmalıdır", Toast.LENGTH_SHORT).show()
-            }
-            .setNegativeButton("İptal", null)
-            .show()
     }
 
     private fun addFriendByShortId(shortId: String) {
@@ -183,12 +190,13 @@ class DashboardActivity : AppCompatActivity() {
                 Toast.makeText(this, "Kendinizi ekleyemezsiniz", Toast.LENGTH_SHORT).show()
                 return@addOnSuccessListener
             }
-
             val updates = hashMapOf<String, Any>(
                 "/Users/$currentUid/friends/$friendUid" to true,
                 "/Users/$friendUid/friends/$currentUid" to true
             )
-            database.updateChildren(updates)
+            database.updateChildren(updates).addOnSuccessListener {
+                Toast.makeText(this, "Arkadaş eklendi", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -203,13 +211,5 @@ class DashboardActivity : AppCompatActivity() {
             }
             .setNegativeButton("Hayır", null)
             .show()
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        // Bellek sızıntısını önlemek için tüm dinleyicileri kaldır
-        friendListeners.forEach { (id, listener) ->
-            database.child("Users").child(id).removeEventListener(listener)
-        }
     }
 }

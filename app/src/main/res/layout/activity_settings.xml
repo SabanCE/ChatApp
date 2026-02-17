@@ -43,7 +43,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:scaleType="centerCrop"
-                    android:src="@drawable/ic_user_placeholder"
+                    android:src="@drawable/default_user"
                     app:shapeAppearanceOverlay="@style/ShapeAppearance.MaterialComponents.SmallComponent"
                     app:strokeColor="@color/primary"
                     app:strokeWidth="2dp" />

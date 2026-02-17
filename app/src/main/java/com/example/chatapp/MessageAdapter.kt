@@ -1,16 +1,25 @@
 package com.example.chatapp
 
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.example.chatapp.databinding.ItemMessageReceivedBinding
 import com.example.chatapp.databinding.ItemMessageSentBinding
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-class MessageAdapter(private val messageList: List<Message>) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+class MessageAdapter(private val messageList: List<Message>, private val isGroupChat: Boolean = false) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     private val ITEM_SENT = 1
     private val ITEM_RECEIVED = 2
+    private val database = FirebaseDatabase.getInstance("https://chatapp-df32e-default-rtdb.firebaseio.com").reference
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         return if (viewType == ITEM_SENT) {
@@ -24,10 +33,28 @@ class MessageAdapter(private val messageList: List<Message>) : RecyclerView.Adap
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         val message = messageList[position]
+        val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(message.timestamp))
+        
         if (holder is SentViewHolder) {
             holder.binding.tvMessage.text = message.message
+            holder.binding.tvTimestamp.text = time
         } else if (holder is ReceivedViewHolder) {
             holder.binding.tvMessage.text = message.message
+            holder.binding.tvTimestamp.text = time
+            
+            if (isGroupChat) {
+                holder.binding.tvSenderName.visibility = View.VISIBLE
+                // Gönderici adını veritabanından çek (veya cache'le)
+                database.child("Users").child(message.senderId).child("fullName")
+                    .addListenerForSingleValueEvent(object : ValueEventListener {
+                        override fun onDataChange(snapshot: DataSnapshot) {
+                            holder.binding.tvSenderName.text = snapshot.value as? String ?: "Bilinmeyen"
+                        }
+                        override fun onCancelled(error: DatabaseError) {}
+                    })
+            } else {
+                holder.binding.tvSenderName.visibility = View.GONE
+            }
         }
     }
 

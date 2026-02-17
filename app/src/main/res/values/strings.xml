@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">ChatApp</string>
+    <string name="app_name">Chat App</string>
     <string name="welcome_back">Hoş Geldiniz</string>
     <string name="login_subtitle">Devam etmek için giriş yapın</string>
     <string name="email">E-posta</string>
