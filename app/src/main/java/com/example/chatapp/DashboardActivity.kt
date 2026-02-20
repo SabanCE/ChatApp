@@ -16,6 +16,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.bumptech.glide.Glide
 import com.example.chatapp.databinding.ActivityDashboardBinding
 import com.example.chatapp.databinding.DialogAddFriendBinding
+import com.example.chatapp.databinding.DialogConfirmationBinding
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.*
@@ -29,13 +30,18 @@ class DashboardActivity : AppCompatActivity() {
     private val dashboardItems = mutableListOf<Any>()
     private var isIdVisible = false
     private var myShortId: String = ""
-    private val friendListeners = mutableMapOf<String, ValueEventListener>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         binding = ActivityDashboardBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        ViewCompat.setOnApplyWindowInsetsListener(binding.main) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            insets
+        }
 
         auth = FirebaseAuth.getInstance()
         database = FirebaseDatabase.getInstance("https://chatapp-df32e-default-rtdb.firebaseio.com").reference
@@ -47,14 +53,8 @@ class DashboardActivity : AppCompatActivity() {
         setupRecyclerView()
         setupListeners()
         updateIdUI()
-        loadMyProfileImage()
+        loadMyProfileData() // Resim ve İsim yükleme
         loadDashboardData()
-
-        ViewCompat.setOnApplyWindowInsetsListener(binding.main) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
     }
 
     private fun setupRecyclerView() {
@@ -64,7 +64,13 @@ class DashboardActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
-        binding.btnLogout.setOnClickListener { showLogoutDialog() }
+        binding.btnLogout.setOnClickListener { 
+            showModernConfirmationDialog("Çıkış Yap", "Hesabınızdan çıkış yapmak istediğinize emin misiniz?") {
+                auth.signOut()
+                startActivity(Intent(this, MainActivity::class.java))
+                finish()
+            } 
+        }
         binding.btnSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
@@ -73,6 +79,23 @@ class DashboardActivity : AppCompatActivity() {
             updateIdUI()
         }
         binding.fabAddFriend.setOnClickListener { view -> showFabMenu(view) }
+    }
+
+    private fun showModernConfirmationDialog(title: String, message: String, onConfirm: () -> Unit) {
+        val dialogBinding = DialogConfirmationBinding.inflate(layoutInflater)
+        val builder = AlertDialog.Builder(this)
+        builder.setView(dialogBinding.root)
+        val dialog = builder.create()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+
+        dialogBinding.tvDialogTitle.text = title
+        dialogBinding.tvDialogMessage.text = message
+        dialogBinding.btnCancel.setOnClickListener { dialog.dismiss() }
+        dialogBinding.btnConfirm.setOnClickListener {
+            onConfirm()
+            dialog.dismiss()
+        }
+        dialog.show()
     }
 
     private fun showFabMenu(view: View) {
@@ -106,23 +129,30 @@ class DashboardActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    private fun loadMyProfileImage() {
+    private fun loadMyProfileData() {
         val uid = auth.uid ?: return
-        database.child("Users").child(uid).child("profileImageUrl")
-            .addValueEventListener(object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    val base64 = snapshot.value as? String
-                    if (!base64.isNullOrEmpty()) {
-                        try {
-                            val imageBytes = Base64.decode(base64, Base64.DEFAULT)
-                            Glide.with(this@DashboardActivity).load(imageBytes).placeholder(R.drawable.ic_user_placeholder).into(binding.ivMyProfile)
-                        } catch (e: Exception) {
-                            binding.ivMyProfile.setImageResource(R.drawable.ic_user_placeholder)
-                        }
+        database.child("Users").child(uid).addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val user = snapshot.getValue(User::class.java) ?: return
+                
+                // İsim güncelleme
+                binding.tvMyName.text = user.fullName
+                
+                // Resim güncelleme
+                if (user.profileImageUrl.isNotEmpty()) {
+                    try {
+                        val imageBytes = Base64.decode(user.profileImageUrl, Base64.DEFAULT)
+                        Glide.with(this@DashboardActivity)
+                            .load(imageBytes)
+                            .placeholder(R.drawable.ic_user_placeholder)
+                            .into(binding.ivMyProfile)
+                    } catch (e: Exception) {
+                        binding.ivMyProfile.setImageResource(R.drawable.ic_user_placeholder)
                     }
                 }
-                override fun onCancelled(error: DatabaseError) {}
-            })
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        })
     }
 
     private fun loadDashboardData() {
@@ -174,7 +204,7 @@ class DashboardActivity : AppCompatActivity() {
     }
 
     private fun updateIdUI() {
-        binding.tvMyId.text = if (isIdVisible) getString(R.string.my_id, myShortId) else getString(R.string.my_id, "*****")
+        binding.tvMyId.text = if (isIdVisible) "Kimliğim: $myShortId" else "Kimliğim: *****"
         binding.btnToggleId.setImageResource(if (isIdVisible) R.drawable.ic_visibility else R.drawable.ic_visibility_off)
     }
 
@@ -198,18 +228,5 @@ class DashboardActivity : AppCompatActivity() {
                 Toast.makeText(this, "Arkadaş eklendi", Toast.LENGTH_SHORT).show()
             }
         }
-    }
-
-    private fun showLogoutDialog() {
-        AlertDialog.Builder(this)
-            .setTitle("Çıkış Yap")
-            .setMessage("Emin misiniz?")
-            .setPositiveButton("Evet") { _, _ ->
-                auth.signOut()
-                startActivity(Intent(this, MainActivity::class.java))
-                finish()
-            }
-            .setNegativeButton("Hayır", null)
-            .show()
     }
 }

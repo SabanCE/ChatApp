@@ -5,7 +5,7 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background_gray"
+    android:background="@color/primary"
     android:fitsSystemWindows="true"
     tools:context=".SettingsActivity">
 
@@ -45,7 +45,7 @@
                     android:scaleType="centerCrop"
                     android:src="@drawable/default_user"
                     app:shapeAppearanceOverlay="@style/ShapeAppearance.MaterialComponents.SmallComponent"
-                    app:strokeColor="@color/primary"
+                    app:strokeColor="@color/black"
                     app:strokeWidth="2dp" />
 
                 <com.google.android.material.floatingactionbutton.FloatingActionButton

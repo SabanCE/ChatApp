@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.util.Base64
+import android.view.View
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
@@ -32,7 +33,6 @@ class SettingsActivity : AppCompatActivity() {
             val encodedImage = encodeImageToBase64(it)
             if (encodedImage != null) {
                 base64Image = encodedImage
-                // Seçilen resmi anında önizlemede göster
                 Glide.with(this).load(it).into(binding.ivProfileImage)
             }
         }
@@ -50,7 +50,6 @@ class SettingsActivity : AppCompatActivity() {
         setupUI()
         loadUserData()
 
-        // Toolbar kayma sorununu kökten çözmek için padding'i ana layout'a veriyoruz
         ViewCompat.setOnApplyWindowInsetsListener(binding.main) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
@@ -72,12 +71,18 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun updateColorSelection(color: String, container: FrameLayout) {
         selectedChatColor = color
-        binding.containerWhite.setBackgroundResource(0)
-        binding.containerBlue.setBackgroundResource(0)
-        binding.containerGreen.setBackgroundResource(0)
-        binding.containerPink.setBackgroundResource(0)
-        binding.containerYellow.setBackgroundResource(0)
+        
+        val containers = listOf(binding.containerWhite, binding.containerBlue, binding.containerGreen, binding.containerPink, binding.containerYellow)
+        
+        containers.forEach { 
+            it.setBackgroundResource(0)
+            it.scaleX = 1.0f
+            it.scaleY = 1.0f
+        }
+        
         container.setBackgroundResource(R.drawable.bg_color_selector)
+        container.scaleX = 1.15f
+        container.scaleY = 1.15f
     }
 
     private fun loadUserData() {
@@ -89,7 +94,6 @@ class SettingsActivity : AppCompatActivity() {
                     binding.etFullName.setText(it.fullName)
                     binding.tvShortId.text = "Short ID: ${it.shortId}"
                     
-                    // Mevcut rengi işaretle
                     when(it.chatColor) {
                         "#FFFFFF" -> updateColorSelection("#FFFFFF", binding.containerWhite)
                         "#BBDEFB" -> updateColorSelection("#BBDEFB", binding.containerBlue)
@@ -101,11 +105,7 @@ class SettingsActivity : AppCompatActivity() {
                     if (it.profileImageUrl.isNotEmpty()) {
                         try {
                             val imageBytes = Base64.decode(it.profileImageUrl, Base64.DEFAULT)
-                            Glide.with(this@SettingsActivity)
-                                .asBitmap()
-                                .load(imageBytes)
-                                .placeholder(R.drawable.ic_user_placeholder)
-                                .into(binding.ivProfileImage)
+                            Glide.with(this@SettingsActivity).asBitmap().load(imageBytes).placeholder(R.drawable.ic_user_placeholder).into(binding.ivProfileImage)
                         } catch (e: Exception) {
                             binding.ivProfileImage.setImageResource(R.drawable.ic_user_placeholder)
                         }
@@ -125,9 +125,7 @@ class SettingsActivity : AppCompatActivity() {
             scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
             val bytes = outputStream.toByteArray()
             Base64.encodeToString(bytes, Base64.DEFAULT)
-        } catch (e: Exception) {
-            null
-        }
+        } catch (e: Exception) { null }
     }
 
     private fun saveProfile() {
@@ -136,17 +134,9 @@ class SettingsActivity : AppCompatActivity() {
             Toast.makeText(this, "İsim boş olamaz", Toast.LENGTH_SHORT).show()
             return
         }
-
         val uid = auth.uid ?: return
-        val updates = mutableMapOf<String, Any>(
-            "fullName" to newName,
-            "chatColor" to selectedChatColor
-        )
-        
-        base64Image?.let {
-            updates["profileImageUrl"] = it
-        }
-
+        val updates = mutableMapOf<String, Any>("fullName" to newName, "chatColor" to selectedChatColor)
+        base64Image?.let { updates["profileImageUrl"] = it }
         database.child("Users").child(uid).updateChildren(updates).addOnSuccessListener {
             Toast.makeText(this, "Profil güncellendi", Toast.LENGTH_SHORT).show()
             finish()

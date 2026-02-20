@@ -15,6 +15,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.bumptech.glide.Glide
 import com.example.chatapp.databinding.ActivityChatBinding
+import com.example.chatapp.databinding.DialogConfirmationBinding
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.*
 
@@ -70,7 +71,7 @@ class ChatActivity : AppCompatActivity() {
 
         setupRecyclerView()
         loadMessages()
-        checkUnmatchStatus() // Eşleşme durumunu canlı izle
+        checkUnmatchStatus()
 
         binding.btnSend.setOnClickListener {
             val messageText = binding.etMessage.text.toString().trim()
@@ -111,7 +112,6 @@ class ChatActivity : AppCompatActivity() {
             .addValueEventListener(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     if (!snapshot.exists()) {
-                        // Eğer arkadaşlık düğümü silinmişse (karşı taraf unmatch yaptıysa)
                         Toast.makeText(this@ChatActivity, "Sohbet sonlandırıldı", Toast.LENGTH_SHORT).show()
                         finish()
                     }
@@ -137,8 +137,10 @@ class ChatActivity : AppCompatActivity() {
                         val message = postSnapshot.getValue(Message::class.java)
                         if (message != null) messageList.add(message)
                     }
-                    adapter.notifyDataSetChanged()
-                    if (messageList.isNotEmpty()) binding.rvMessages.scrollToPosition(messageList.size - 1)
+                    adapter.updateData() // updateData() kullanıyoruz
+                    if (adapter.itemCount > 0) {
+                        binding.rvMessages.scrollToPosition(adapter.itemCount - 1)
+                    }
                 }
                 override fun onCancelled(error: DatabaseError) {}
             })
@@ -163,19 +165,29 @@ class ChatActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == R.id.action_unmatch) {
-            showUnmatchDialog()
+            showModernConfirmationDialog("Eşleşmeyi Kaldır", "Bu kişiyle olan sohbetiniz silinecektir.") {
+                unmatchUser()
+            }
             return true
         }
         return super.onOptionsItemSelected(item)
     }
 
-    private fun showUnmatchDialog() {
-        AlertDialog.Builder(this)
-            .setTitle("Eşleşmeyi Kaldır")
-            .setMessage("Bu kişiyle olan sohbetiniz silinecektir.")
-            .setPositiveButton("Evet") { _, _ -> unmatchUser() }
-            .setNegativeButton("Hayır", null)
-            .show()
+    private fun showModernConfirmationDialog(title: String, message: String, onConfirm: () -> Unit) {
+        val dialogBinding = DialogConfirmationBinding.inflate(layoutInflater)
+        val builder = AlertDialog.Builder(this)
+        builder.setView(dialogBinding.root)
+        val dialog = builder.create()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+
+        dialogBinding.tvDialogTitle.text = title
+        dialogBinding.tvDialogMessage.text = message
+        dialogBinding.btnCancel.setOnClickListener { dialog.dismiss() }
+        dialogBinding.btnConfirm.setOnClickListener {
+            onConfirm()
+            dialog.dismiss()
+        }
+        dialog.show()
     }
 
     private fun unmatchUser() {

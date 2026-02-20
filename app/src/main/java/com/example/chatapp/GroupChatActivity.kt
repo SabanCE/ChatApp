@@ -13,6 +13,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.bumptech.glide.Glide
 import com.example.chatapp.databinding.ActivityGroupChatBinding
+import com.example.chatapp.databinding.DialogConfirmationBinding
 import com.example.chatapp.databinding.DialogGroupMembersBinding
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.firebase.auth.FirebaseAuth
@@ -89,10 +90,27 @@ class GroupChatActivity : AppCompatActivity() {
                         Glide.with(this@GroupChatActivity).load(bytes).into(binding.ivGroupIcon)
                     } catch (e: Exception) {}
                 }
-                invalidateOptionsMenu() // Admin durumu değiştikçe menüyü güncelle
+                invalidateOptionsMenu()
             }
             override fun onCancelled(error: DatabaseError) {}
         })
+    }
+
+    private fun showModernConfirmationDialog(title: String, message: String, onConfirm: () -> Unit) {
+        val dialogBinding = DialogConfirmationBinding.inflate(layoutInflater)
+        val builder = AlertDialog.Builder(this)
+        builder.setView(dialogBinding.root)
+        val dialog = builder.create()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+
+        dialogBinding.tvDialogTitle.text = title
+        dialogBinding.tvDialogMessage.text = message
+        dialogBinding.btnCancel.setOnClickListener { dialog.dismiss() }
+        dialogBinding.btnConfirm.setOnClickListener {
+            onConfirm()
+            dialog.dismiss()
+        }
+        dialog.show()
     }
 
     private fun showGroupMembersModern() {
@@ -104,7 +122,16 @@ class GroupChatActivity : AppCompatActivity() {
         val currentUid = auth.uid ?: ""
         
         val memberAdapter = MemberAdapter(members, groupAdminId ?: "", currentUid) { userToRemove ->
-            removeMember(userToRemove, dialog)
+            showModernConfirmationDialog("Üyeyi Çıkar", "${userToRemove.fullName} kişisini gruptan çıkarmak istediğinize emin misiniz?") {
+                val updates = hashMapOf<String, Any?>(
+                    "/Groups/$groupId/members/${userToRemove.uid}" to null,
+                    "/Users/${userToRemove.uid}/groups/$groupId" to null
+                )
+                database.updateChildren(updates).addOnSuccessListener {
+                    Toast.makeText(this, "Üye çıkarıldı", Toast.LENGTH_SHORT).show()
+                    dialog.dismiss()
+                }
+            }
         }
         
         dialogBinding.rvMembersList.layoutManager = LinearLayoutManager(this)
@@ -133,24 +160,6 @@ class GroupChatActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    private fun removeMember(user: User, dialog: BottomSheetDialog) {
-        AlertDialog.Builder(this)
-            .setTitle("Üyeyi Çıkar")
-            .setMessage("${user.fullName} kişisini gruptan çıkarmak istediğinize emin misiniz?")
-            .setPositiveButton("Evet") { _, _ ->
-                val updates = hashMapOf<String, Any?>(
-                    "/Groups/$groupId/members/${user.uid}" to null,
-                    "/Users/${user.uid}/groups/$groupId" to null
-                )
-                database.updateChildren(updates).addOnSuccessListener {
-                    Toast.makeText(this, "Üye çıkarıldı", Toast.LENGTH_SHORT).show()
-                    dialog.dismiss()
-                }
-            }
-            .setNegativeButton("Hayır", null)
-            .show()
-    }
-
     private fun setupRecyclerView() {
         adapter = MessageAdapter(messageList, isGroupChat = true)
         val layoutManager = LinearLayoutManager(this)
@@ -168,8 +177,10 @@ class GroupChatActivity : AppCompatActivity() {
                         val message = postSnapshot.getValue(Message::class.java)
                         if (message != null) messageList.add(message)
                     }
-                    adapter.notifyDataSetChanged()
-                    if (messageList.isNotEmpty()) binding.rvMessages.scrollToPosition(messageList.size - 1)
+                    adapter.updateData() // updateData() fonksiyonunu çağırdık
+                    if (adapter.itemCount > 0) {
+                        binding.rvMessages.scrollToPosition(adapter.itemCount - 1)
+                    }
                 }
                 override fun onCancelled(error: DatabaseError) {}
             })
@@ -179,44 +190,41 @@ class GroupChatActivity : AppCompatActivity() {
         val senderId = auth.uid ?: return
         val messageObject = Message(text, senderId, System.currentTimeMillis())
         database.child("GroupChats").child(groupId!!).child("messages").push().setValue(messageObject)
-            .addOnSuccessListener { binding.etMessage.text.clear() }
+            .addOnSuccessListener { 
+                binding.etMessage.text.clear() 
+            }
+            .addOnFailureListener {
+                Toast.makeText(this, "Mesaj gönderilemedi: ${it.message}", Toast.LENGTH_SHORT).show()
+            }
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         menuInflater.inflate(R.menu.chat_menu, menu)
-        
         val leaveItem = menu?.findItem(R.id.action_leave_group)
         val deleteItem = menu?.findItem(R.id.action_delete_group)
         val unmatchItem = menu?.findItem(R.id.action_unmatch)
-
-        unmatchItem?.isVisible = false // Grup sohbetinde unmatch gizle
+        unmatchItem?.isVisible = false
         leaveItem?.isVisible = true
-        deleteItem?.isVisible = (auth.uid == groupAdminId) // Sadece admin silebilir
-
+        deleteItem?.isVisible = (auth.uid == groupAdminId)
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.action_leave_group -> {
-                showLeaveGroupDialog()
+                showModernConfirmationDialog("Gruptan Ayrıl", "Bu gruptan çıkmak istediğinize emin misiniz?") {
+                    leaveGroup()
+                }
                 return true
             }
             R.id.action_delete_group -> {
-                showDeleteGroupDialog()
+                showModernConfirmationDialog("Grubu Sil", "Bu grubu tamamen silmek istediğinize emin misiniz? Bu işlem geri alınamaz.") {
+                    deleteGroup()
+                }
                 return true
             }
         }
         return super.onOptionsItemSelected(item)
-    }
-
-    private fun showDeleteGroupDialog() {
-        AlertDialog.Builder(this)
-            .setTitle("Grubu Sil")
-            .setMessage("Bu grubu tamamen silmek istediğinize emin misiniz? Bu işlem geri alınamaz.")
-            .setPositiveButton("Evet") { _, _ -> deleteGroup() }
-            .setNegativeButton("Hayır", null)
-            .show()
     }
 
     private fun deleteGroup() {
@@ -225,15 +233,9 @@ class GroupChatActivity : AppCompatActivity() {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val group = snapshot.getValue(Group::class.java) ?: return
                 val updates = hashMapOf<String, Any?>()
-                
-                // Tüm üyelerin altındaki grup referansını sil
-                group.members.keys.forEach { memberId ->
-                    updates["/Users/$memberId/groups/$gid"] = null
-                }
-                // Grubun kendisini ve mesajlarını sil
+                group.members.keys.forEach { memberId -> updates["/Users/$memberId/groups/$gid"] = null }
                 updates["/Groups/$gid"] = null
                 updates["/GroupChats/$gid"] = null
-
                 database.updateChildren(updates).addOnSuccessListener {
                     Toast.makeText(this@GroupChatActivity, "Grup silindi", Toast.LENGTH_SHORT).show()
                     finish()
@@ -243,42 +245,26 @@ class GroupChatActivity : AppCompatActivity() {
         })
     }
 
-    private fun showLeaveGroupDialog() {
-        AlertDialog.Builder(this)
-            .setTitle("Gruptan Çık")
-            .setMessage("Bu gruptan çıkmak istediğinize emin misiniz?")
-            .setPositiveButton("Evet") { _, _ -> leaveGroup() }
-            .setNegativeButton("Hayır", null)
-            .show()
-    }
-
     private fun leaveGroup() {
         val uid = auth.uid ?: return
         val gid = groupId ?: return
-
         database.child("Groups").child(gid).addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val group = snapshot.getValue(Group::class.java) ?: return
                 val members = group.members.toMutableMap()
                 members.remove(uid)
-
                 val updates = hashMapOf<String, Any?>()
                 updates["/Users/$uid/groups/$gid"] = null
-
                 if (members.isEmpty()) {
-                    // Eğer son kişi çıktıysa grubu sil
                     updates["/Groups/$gid"] = null
                     updates["/GroupChats/$gid"] = null
                 } else if (uid == groupAdminId) {
-                    // Eğer admin çıktıysa rastgele birini admin yap
                     val newAdminId = members.keys.random()
                     updates["/Groups/$gid/adminId"] = newAdminId
                     updates["/Groups/$gid/members/$uid"] = null
                 } else {
-                    // Normal üye çıktıysa sadece üyeliğini sil
                     updates["/Groups/$gid/members/$uid"] = null
                 }
-
                 database.updateChildren(updates).addOnSuccessListener {
                     Toast.makeText(this@GroupChatActivity, "Gruptan çıkıldı", Toast.LENGTH_SHORT).show()
                     finish()
