@@ -1,9 +1,12 @@
+### Ekran Görüntüleri
 
+<p align="center">
+  <img src="screenshots/login.jpeg" width="200" />
+  <img src="screenshots/home.jpeg" width="200" />
+  <img src="screenshots/groupchat.jpeg" width="200" />
+</p>
 
-![Giriş Ekranı](screenshots/login.jpeg)
-![Kayıt Ekranı](screenshots/register.jpeg)
-![Ana Sayfa](screenshots/home.jpeg)
-![Grup Sohbeti](screenshots/groupchat.jpeg)
-![Birebir Sohbet](screenshots/onetoone.jpeg)
-![Yeni Grup](screenshots/newgroup.jpeg)
-![Ayarlar](screenshots/settings.jpeg)
+<p align="center">
+  <img src="screenshots/onetoone.jpeg" width="200" />
+  <img src="screenshots/settings.jpeg" width="200" />
+</p>
