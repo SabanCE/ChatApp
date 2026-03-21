@@ -66,4 +66,4 @@ Projeyi derleyin ve çalıştırın.
 
 👤 Geliştiren
 
-Ahmet Arif Özkan – Computer Engineering Student
+Şaban Akçehre – Computer Engineering Student
