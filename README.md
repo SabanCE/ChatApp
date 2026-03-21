@@ -4,11 +4,14 @@ ChatApp, Firebase altyapısını kullanan, modern arayüzlü ve gerçek zamanlı
 
 📸 Ekran Görüntüleri
 
-Giriş & Kayıt | Ana Ekran | Sohbet & Gruplar
-<img src="screenshots/login.jpeg" width="200" /> <img src="screenshots/home.jpeg" width="200" /> <img src="screenshots/groupchat.jpeg" width="200" />
-
-Birebir Sohbet | Grup Oluşturma | Ayarlar
-<img src="screenshots/onetoone.jpeg" width="200" /> <img src="screenshots/newgroup.jpeg" width="200" /> <img src="screenshots/settings.jpeg" width="200" />
+Giriş & Kayıt <img src="screenshots/login.jpeg" width="200" />|
+Ana Ekran <img src="screenshots/home.jpeg" width="200" />| 
+Sohbet & Gruplar
+<img src="screenshots/groupchat.jpeg" width="200" />|
+Birebir Sohbet <img src="screenshots/onetoone.jpeg" width="200" />|
+Grup Oluşturma <img src="screenshots/newgroup.jpeg" width="200" />|
+Ayarlar <img src="screenshots/settings.jpeg" width="200" />|
+ 
 
 🚀 Özellikler
 
